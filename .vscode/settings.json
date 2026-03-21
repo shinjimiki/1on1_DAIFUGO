@@ -1,0 +1,10 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^python test_wrapper\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "c:/Users/acbd1/Documents/GitHub/1on1_DAIFUGO/.venv/Scripts/python.exe": true,
+        ".venv\\Scripts\\python.exe": true
+    }
+}
