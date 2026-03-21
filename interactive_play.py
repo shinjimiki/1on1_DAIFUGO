@@ -3,6 +3,7 @@
 AI側の手札は秘密
 """
 
+import argparse
 import time
 from daifugo_env import Daifugo1v1Env, Meld, PASS, State, rank_of, rank_value, RANKS
 from wrapper import DaifugoGymEnv
@@ -239,34 +240,43 @@ def play_interactive_game(model=None):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Interactive Daifugo game against AI")
+    parser.add_argument(
+        "-m", "--model",
+        type=str,
+        default="models/daifugo_ppo.zip",
+        help="Path to trained model (default: models/daifugo_ppo.zip)"
+    )
+    parser.add_argument(
+        "-r", "--random",
+        action="store_true",
+        help="Play against random AI instead of trained model"
+    )
+    
+    args = parser.parse_args()
+    
     print("\n" + "="*70)
     print("🎮 大富豪 AI との対戦システム")
     print("="*70)
     
-    print("\n【モード選択】")
-    print("  1. 訓練済みモデルと対戦")
-    print("  2. AI（ランダム）と対戦")
-    
-    while True:
-        mode = input("\nモードを選択してください (1 or 2) > ").strip()
-        if mode in ["1", "2"]:
-            break
-        print("❌ 1 または 2 を入力してください")
-    
-    if mode == "1":
+    # モード決定（引数で指定されている場合）
+    if args.random:
+        print("\n🎲 ランダムモードで対戦します\n")
+        model = None
+    else:
         print("\n📚 訓練済みモデルをロード中...")
         try:
             trainer = DaifugoTrainer()
-            trainer.load_model("models/daifugo_ppo.zip")
+            trainer.load_model(args.model)
             model = trainer.model
-            print("✅ モデルをロード完了！\n")
+            print(f"✅ モデルをロード完了！ ({args.model})\n")
         except FileNotFoundError:
-            print("❌ モデルが見つかりません (models/daifugo_ppo.zip)")
-            print("   まず play_game.py を実行してモデルを訓練してください\n")
+            print(f"❌ モデルが見つかりません ({args.model})")
+            print("   指定されたパスにモデルが存在するか確認してください\n")
             return
-    else:
-        print("\n🎲 ランダムモードで対戦します\n")
-        model = None
+        except Exception as e:
+            print(f"❌ モデルロード失敗: {e}\n")
+            return
     
     # ゲーム開始
     while True:

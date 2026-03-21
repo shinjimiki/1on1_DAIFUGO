@@ -5,8 +5,12 @@ PPO（Proximal Policy Optimization）を使用。
 
 from __future__ import annotations
 
+import argparse
 import numpy as np
 from collections import deque
+from datetime import datetime
+import json
+import os
 
 # stable-baselines3 のインポート（後でインストール）
 try:
@@ -156,32 +160,153 @@ class DaifugoTrainer:
             "average_reward": avg_reward,
         }
     
-    def save_model(self, path: str) -> None:
-        """モデルを保存"""
+    
+    def save_model(self, path: str, save_info: bool = False, use_timestamp: bool = False) -> dict:
+        """
+        モデルを保存。
+        
+        Args:
+            path: 保存先パス（use_timestamp=False の場合）または保存先ディレクトリ（use_timestamp=True の場合）
+            save_info: True の場合、詳細情報ファイルも保存
+            use_timestamp: True の場合、タイムスタンプ付きファイル名で保存（既存ファイルを上書きしない）
+        
+        Returns:
+            保存情報の辞書
+        """
         if self.model is None:
             raise RuntimeError("No model to save.")
-        self.model.save(path)
-        print(f"Model saved to {path}")
+        
+        # タイムスタンプを用いたファイル名を生成
+        if use_timestamp:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if path.endswith(".zip"):
+                base_path = path.replace(".zip", "")
+            else:
+                base_path = path
+            save_path = f"{base_path}_{timestamp}.zip"
+        else:
+            save_path = path
+        
+        # ディレクトリが存在しない場合は作成
+        save_dir = os.path.dirname(save_path)
+        if save_dir and not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        
+        self.model.save(save_path)
+        print(f"Model saved to {save_path}")
+        
+        # 詳細情報を保存
+        if save_info:
+            now = datetime.now()
+            info = {
+                "timestamp": now.isoformat(),
+                "datetime": now.strftime("%Y年%m月%d日 %H:%M:%S"),
+                "model_path": save_path,
+                "training_history": self.training_history,
+                "env_config": {
+                    "observation_space": str(self.env.observation_space),
+                    "action_space": str(self.env.action_space),
+                },
+            }
+            
+            # JSON ファイルを保存
+            info_path = save_path.replace(".zip", "_info.json")
+            with open(info_path, "w", encoding="utf-8") as f:
+                json.dump(info, f, indent=2, ensure_ascii=False)
+            print(f"Model info saved to {info_path}")
+            print(f"  Saved at: {info['datetime']}")
+            
+            return info
+        
+        return {"model_path": save_path}
     
     def load_model(self, path: str) -> None:
-        """モデルを読み込み"""
+        """
+        モデルを読み込み。
+        
+        Args:
+            path: 読み込み元パス
+        """
         from stable_baselines3 import PPO
         self.model = PPO.load(path, env=self.env)
         print(f"Model loaded from {path}")
+        
+        # 情報ファイルが存在すれば読み込み
+        info_path = path.replace(".zip", "_info.json")
+        if os.path.exists(info_path):
+            try:
+                with open(info_path, "r", encoding="utf-8") as f:
+                    info = json.load(f)
+                print(f"Model info loaded from {info_path}")
+                print(f"  Saved at: {info.get('timestamp', 'N/A')}")
+            except Exception as e:
+                print(f"Warning: Could not load model info: {e}")
+
+
 
 
 if __name__ == "__main__":
-    # トレーニング例
-    trainer = DaifugoTrainer(seed=42)
+    parser = argparse.ArgumentParser(description="Train Daifugo PPO model")
+    parser.add_argument(
+        "-t", "--timesteps",
+        type=int,
+        default=50000,
+        help="Total training timesteps (default: 50000)"
+    )
+    parser.add_argument(
+        "-e", "--episodes",
+        type=int,
+        default=100,
+        help="Number of evaluation episodes (default: 100)"
+    )
+    parser.add_argument(
+        "-s", "--seed",
+        type=int,
+        default=42,
+        help="Random seed (default: 42)"
+    )
+    parser.add_argument(
+        "-l", "--load",
+        type=str,
+        default=None,
+        help="Path to pre-trained model to load and continue training"
+    )
+    parser.add_argument(
+        "--save-info",
+        action="store_true",
+        help="Save detailed model info with timestamp"
+    )
+    parser.add_argument(
+        "--no-timestamp",
+        action="store_true",
+        help="Save with fixed name (default: use timestamp)"
+    )
     
-    print("Building PPO model...")
-    trainer.build_model(learning_rate=3e-4)
+    args = parser.parse_args()
     
-    print("Training...")
-    trainer.train(total_timesteps=50000)
+    # トレーニング開始
+    trainer = DaifugoTrainer(seed=args.seed)
     
-    print("Evaluating...")
-    stats = trainer.evaluate(num_episodes=100)
+    # 既存モデルをロード
+    if args.load:
+        print(f"Loading model from {args.load}...")
+        trainer.load_model(args.load)
+        print("✓ Model loaded. Continuing training...")
+    else:
+        print("Building PPO model...")
+        trainer.build_model(learning_rate=3e-4)
+    
+    print(f"Training for {args.timesteps} timesteps...")
+    trainer.train(total_timesteps=args.timesteps)
+    
+    print(f"Evaluating over {args.episodes} episodes...")
+    stats = trainer.evaluate(num_episodes=args.episodes)
     print(f"Evaluation stats: {stats}")
     
-    trainer.save_model("models/daifugo_ppo.zip")
+    # モデルを保存
+    use_timestamp = not args.no_timestamp  # デフォルトはタイムスタンプを使用
+    trainer.save_model(
+        "models/daifugo_ppo.zip",
+        save_info=args.save_info,
+        use_timestamp=use_timestamp
+    )
