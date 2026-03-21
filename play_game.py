@@ -69,12 +69,22 @@ def play_one_game(model=None, verbose: bool = True):
                 # 相手はランダム
                 mask = info["action_mask"]
                 legal_ids = np.where(mask)[0]
+                if len(legal_ids) == 0:
+                    print(f"ERROR: No legal actions available for Player {turn}")
+                    print(f"  Mask sum: {np.sum(mask)}, Mask length: {len(mask)}")
+                    print(f"  Game done: {env.state.done}")
+                    break
                 action = np.random.choice(legal_ids)
                 action_source = "🎲"
         else:
             # ランダムプレイ
             mask = info["action_mask"]
             legal_ids = np.where(mask)[0]
+            if len(legal_ids) == 0:
+                print(f"ERROR: No legal actions available for Player {turn}")
+                print(f"  Mask sum: {np.sum(mask)}, Mask length: {len(mask)}")
+                print(f"  Game done: {env.state.done}")
+                break
             action = np.random.choice(legal_ids)
             action_source = "🎲"
         

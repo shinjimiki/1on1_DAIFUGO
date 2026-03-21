@@ -323,7 +323,7 @@ class DaifugoGUI:
     
     def handle_key(self, key):
         """Handle keyboard input"""
-        if key == pygame.K_SPACE and self.selected_cards:
+        if key == pygame.K_SPACE and self.selected_cards and self.env.state.turn == 0:
             # Space key to confirm - find action matching all selected cards
             action_id = self.find_action_for_cards(self.selected_cards)
             if action_id != -1:
@@ -331,14 +331,14 @@ class DaifugoGUI:
             else:
                 self.message = "Invalid card combination"
                 self.message_timer = 120
-        elif key == pygame.K_p:
-            # P key for PASS
-            legal_actions = self.env.env.legal_actions(self.env.state)
-            for action in legal_actions:
-                if action == PASS:
-                    action_id = self.env.env.action_index[self.env.env._canon(action)]
-                    self.execute_action(action_id)
-                    break
+        elif key == pygame.K_p and self.env.state.turn == 0:
+            # P key for PASS (only during player's turn) - always allowed
+            try:
+                pass_action_id = self.env.env.action_index[self.env.env._canon(PASS)]
+                self.execute_action(pass_action_id)
+            except (KeyError, AttributeError):
+                self.message = "PASS action not available"
+                self.message_timer = 120
         elif key == pygame.K_ESCAPE:
             # ESC key to deselect all
             self.selected_cards = []
@@ -500,7 +500,7 @@ class DaifugoGUI:
             
             self.update_scroll()  # Update scroll from held keys
             self.draw()
-            self.clock.tick(30)  # 30 FPS
+            self.clock.tick(60)  # 60 FPS
         
         pygame.quit()
         sys.exit()

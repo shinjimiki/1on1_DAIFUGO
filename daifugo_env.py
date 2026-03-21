@@ -107,10 +107,10 @@ class Daifugo1v1Env:
         candidates = self._generate_melds(hand_list)
         
         if state.table is None:
-            # 場がない場合: すべての candidates を返す
+            # 場がない場合: すべての candidates を返す（新しい場を開始）
             return candidates
         
-        # 場がある場合: beat 可能な candidates をフィルタリング
+        # 場がある場合: beat 可能な candidates と PASS をフィルタリング
         out: list[Meld | str] = []
         table = state.table
         
@@ -119,7 +119,10 @@ class Daifugo1v1Env:
                 continue
             out.append(meld)
         
-        out.append(PASS)
+        # 場がある場合は、beat できなければ PASS
+        if not out:
+            out.append(PASS)
+        
         return out
     
     def _generate_melds(self, hand_list: list[str]) -> list[Meld]:
@@ -163,8 +166,10 @@ class Daifugo1v1Env:
         1ステップ実行。アクションを実行し、状態、報酬、終了フラグ、情報を返す。
         
         報酬:
-        - 自分が勝利: +1
-        - 自分が敗北: -1
+        - 勝利: +1 + （相手の残り手札 * 0.1）
+          相手が多く手札を残している（自分が早く勝った）ほど報酬が大きい
+        - 敗北: -1 - （自分の残り手札 * 0.1）
+          自分が手札を多く残している（負けが大きい）ほど罰が大きい
         - その他: 0
         """
         if self.state is None:
@@ -214,12 +219,15 @@ class Daifugo1v1Env:
         # 手札が 0 枚になったら終了（勝利）
         if len(self.state.hands[p]) == 0:
             self.state.done = True
-            # p が勝者
+            opponent_remaining = len(self.state.hands[1 - p])
+            # 報酬はプレイヤー0視点で計算
+            # - プレイヤー0が勝つ: 1.0 + opponent_remaining * 0.1
+            # - プレイヤー1が勝つ: -1.0 - opponent_remaining * 0.1
             if p == 0:
-                reward = 1.0
+                reward = 1.0 + opponent_remaining * 0.1
             else:
-                reward = -1.0
-            return self.state, reward, True, {"winner": p}
+                reward = -1.0 - opponent_remaining * 0.1
+            return self.state, reward, True, {"winner": p, "opponent_remaining": opponent_remaining}
 
         return self.state, 0.0, False, {}
 
