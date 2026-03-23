@@ -59,7 +59,7 @@ class AlphaZeroTrainer:
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1000, gamma=0.9)
 
         # MCTS設定
-        self.mcts = MCTS(c_puct=1.0, max_simulations=400)
+        self.mcts = MCTS(c_puct=1.0, max_simulations=400, device=self.device)
 
         # 訓練データ
         self.replay_buffer = deque(maxlen=100000)

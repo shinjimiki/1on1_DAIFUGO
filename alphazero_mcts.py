@@ -84,9 +84,10 @@ class MCTSNode:
 class MCTS:
     """Monte Carlo Tree Search"""
 
-    def __init__(self, c_puct: float = 1.0, max_simulations: int = 800):
+    def __init__(self, c_puct: float = 1.0, max_simulations: int = 800, device: str = "cpu"):
         self.c_puct = c_puct
         self.max_simulations = max_simulations
+        self.device = device
         self.root: Optional[MCTSNode] = None
         self.node_cache: Dict[str, MCTSNode] = {}  # 状態キー -> ノード
 
@@ -168,9 +169,9 @@ class MCTS:
             legal_ids = [sim_env.env.action_index[sim_env.env._canon(a)] for a in legal_actions]
 
             # Policy Networkでアクション確率を予測
-            obs_tensor = torch.FloatTensor(current_obs).unsqueeze(0)
+            obs_tensor = torch.FloatTensor(current_obs).unsqueeze(0).to(self.device)
             policy_logits = policy_net(obs_tensor)
-            policy_probs = torch.softmax(policy_logits, dim=-1).squeeze(0).detach().numpy()
+            policy_probs = torch.softmax(policy_logits, dim=-1).squeeze(0).detach().cpu().numpy()
 
             # ノードを展開
             node.expand(legal_ids, policy_probs)
