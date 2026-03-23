@@ -2,10 +2,10 @@
 
 ## 概要
 
-**1対1 大富豪** の AI を強化学習（PPO）で訓練・対戦するシステムです。
+**1対1 大富豪** の AI を強化学習で訓練・対戦するシステムです。
 
-- 🎮 完全ルール実装（革命、8切り、階段など）
-- 🤖 PPO による強化学習
+- 🎮 完全ルール実装（革命、8切り、階段、ジョーカーなど）
+- 🤖 PPO および AlphaZero による強化学習
 - 👥 人間 vs AI のインタラクティブ対戦
 - 📊 Gymnasium 互換環境
 
@@ -28,14 +28,24 @@ python -m venv .venv
 .venv\Scripts\activate
 
 # 必要なパッケージをインストール
-pip install gymnasium stable-baselines3 numpy
+pip install gymnasium stable-baselines3 numpy torch torchvision
 ```
 
-### 2. AI を訓練＆ゲームプレイ
+### 2. PPO AI を訓練＆ゲームプレイ
 
 ```bash
-# AI を訓練をして 5 ゲーム自動対戦
+# PPO AI を訓練をして 5 ゲーム自動対戦
 python play_game.py
+```
+
+### 3. AlphaZero AI を訓練＆ゲームプレイ 🆕
+
+```bash
+# AlphaZero AI を訓練（50イテレーション × 50ゲーム）
+python alphazero_train.py -i 50 -g 50
+
+# AlphaZero vs ランダムAI の対戦デモ
+python alphazero_play.py
 ```
 
 **出力例:**
@@ -99,15 +109,20 @@ python gui.py
 
 ## 📁 ファイル構成
 
-| ファイル              | 説明                               |
-| --------------------- | ---------------------------------- |
-| `daifugo_env.py`      | コア環境実装（ゲームルール）       |
-| `wrapper.py`          | Gymnasium 互換ラッパー             |
-| `train.py`            | PPO トレーニング管理               |
-| `play_game.py`        | AI 自動対戦デモ                    |
-| `interactive_play.py` | 人間 vs AI インタラクティブ（CLI） |
-| `gui.py`              | 🆕 人間 vs AI グラフィカルUI       |
-| `RL_SPEC.md`          | ゲーム仕様書                       |
+| ファイル               | 説明                                |
+| ---------------------- | ----------------------------------- |
+| `daifugo_env.py`       | コア環境実装（ゲームルール）        |
+| `wrapper.py`           | Gymnasium 互換ラッパー              |
+| `train.py`             | PPO トレーニング管理                |
+| `play_game.py`         | AI 自動対戦デモ                     |
+| `interactive_play.py`  | 人間 vs AI インタラクティブ（CLI）  |
+| `gui.py`               | 🆕 人間 vs AI グラフィカルUI        |
+| `alphazero_network.py` | 🆕 AlphaZero ニューラルネットワーク |
+| `alphazero_mcts.py`    | 🆕 AlphaZero MCTS 実装              |
+| `alphazero_trainer.py` | 🆕 AlphaZero 訓練クラス             |
+| `alphazero_train.py`   | 🆕 AlphaZero 訓練スクリプト         |
+| `alphazero_play.py`    | 🆕 AlphaZero 対戦デモ               |
+| `RL_SPEC.md`           | ゲーム仕様書                        |
 
 ---
 
@@ -140,6 +155,23 @@ python interactive_play.py
 python interactive_play.py
 # モード選択 → 2（ランダム）
 # ランダムな AI と対戦
+```
+
+### パターン 4: AlphaZero AI を訓練 🆕
+
+```python
+from alphazero_trainer import AlphaZeroTrainer
+
+trainer = AlphaZeroTrainer()
+trainer.train(num_iterations=100, games_per_iteration=50)
+trainer.save_model("models/alphazero_v1.pth")
+```
+
+### パターン 5: AlphaZero vs 人間対戦 🆕
+
+```bash
+# AlphaZeroモデルをロードして対戦
+python interactive_play.py -m models/alphazero_final.pth
 ```
 
 ---
@@ -184,11 +216,19 @@ trainer.load_model("path/to/model.zip")
 
 ## 📊 パフォーマンス
 
-現在のモデル (`models/daifugo_ppo.zip`):
+### PPO モデル (`models/daifugo_ppo.zip`)
 
 - **訓練ステップ**: 10,000
 - **勝率**: 100% （5/5 ゲーム勝利）
 - **平均報酬**: +1.0
+
+### AlphaZero モデル (`models/alphazero_final.pth`) 🆕
+
+- **訓練イテレーション**: 50
+- **総ゲーム数**: 2,500
+- **MCTS シミュレーション**: 400/手
+- **ネットワーク**: Policy + Value (別々)
+- **期待性能**: 訓練後、ランダムAIに対して高い勝率
 
 ---
 
