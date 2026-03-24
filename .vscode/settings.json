@@ -14,6 +14,14 @@
         "/^\\.venv\\\\Scripts\\\\activate ; python -c \"from alphazero_trainer import AlphaZeroTrainer; from wrapper import DaifugoGymEnv; t=AlphaZeroTrainer\\(device='cpu'\\); print\\('trainer init ok'\\); t\\.train\\(num_iterations=1, games_per_iteration=1\\); print\\('train ok'\\)\"$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^\\.venv\\\\Scripts\\\\activate ; python -m py_compile interactive_play\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^\\.venv\\\\Scripts\\\\activate ; python interactive_play\\.py -m models/alphazero_final\\.pth --random$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

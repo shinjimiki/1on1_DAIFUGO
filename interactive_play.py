@@ -214,7 +214,10 @@ def play_interactive_game(model=None):
             # AI のターン
             print("\n【AI のターン】")
             if model is not None:
-                action_id, _ = model.predict(obs, deterministic=True)
+                if isinstance(model, AlphaZeroModelWrapper):
+                    action_id, _ = model.predict(obs, deterministic=True, action_mask=info["action_mask"])
+                else:
+                    action_id, _ = model.predict(obs, deterministic=True)
                 action_id = int(action_id)
             else:
                 # ランダムプレイ
@@ -237,6 +240,35 @@ def play_interactive_game(model=None):
         # ステップ実行
         obs, reward, done, _, info = env.step(action_id)
         print()
+
+
+class AlphaZeroModelWrapper:
+    """alphazero_trainerのモデルを、PPO互換predictインターフェースに変換するラッパー"""
+
+    def __init__(self, trainer):
+        self.trainer = trainer
+
+    def predict(self, obs, deterministic=True, action_mask=None):
+        policy_probs, _ = self.trainer.predict(obs)
+
+        if action_mask is not None:
+            policy_probs = policy_probs * np.array(action_mask, dtype=float)
+
+        if policy_probs.sum() <= 0:
+            # 全て0であればランダムに1つ選択
+            legal_ids = np.where(action_mask)[0] if action_mask is not None else np.arange(len(policy_probs))
+            if len(legal_ids) == 0:
+                return int(0), None
+            action_id = int(np.random.choice(legal_ids))
+            return action_id, None
+
+        if deterministic:
+            action_id = int(np.argmax(policy_probs))
+        else:
+            p = policy_probs / policy_probs.sum()
+            action_id = int(np.random.choice(len(p), p=p))
+
+        return action_id, None
 
 
 def main():
@@ -265,19 +297,36 @@ def main():
         model = None
     else:
         print("\n📚 訓練済みモデルをロード中...")
-        try:
-            trainer = DaifugoTrainer()
-            trainer.load_model(args.model)
-            model = trainer.model
-            print(f"✅ モデルをロード完了！ ({args.model})\n")
-        except FileNotFoundError:
-            print(f"❌ モデルが見つかりません ({args.model})")
-            print("   指定されたパスにモデルが存在するか確認してください\n")
-            return
-        except Exception as e:
-            print(f"❌ モデルロード失敗: {e}\n")
-            return
-    
+        if args.model.endswith(".pth"):
+            # AlphaZeroモデルを読み込み
+            from alphazero_trainer import AlphaZeroTrainer
+            try:
+                az_trainer = AlphaZeroTrainer(device="cpu")
+                az_trainer.load_model(args.model)
+                model = AlphaZeroModelWrapper(az_trainer)
+                print(f"✅ AlphaZeroモデルをロード完了！ ({args.model})\n")
+            except FileNotFoundError:
+                print(f"❌ モデルが見つかりません ({args.model})")
+                print("   指定されたパスにモデルが存在するか確認してください\n")
+                return
+            except Exception as e:
+                print(f"❌ AlphaZeroモデルロード失敗: {e}\n")
+                return
+        else:
+            # PPOモデルを読み込み
+            try:
+                trainer = DaifugoTrainer()
+                trainer.load_model(args.model)
+                model = trainer.model
+                print(f"✅ PPOモデルをロード完了！ ({args.model})\n")
+            except FileNotFoundError:
+                print(f"❌ モデルが見つかりません ({args.model})")
+                print("   指定されたパスにモデルが存在するか確認してください\n")
+                return
+            except Exception as e:
+                print(f"❌ PPOモデルロード失敗: {e}\n")
+                return
+
     # ゲーム開始
     while True:
         play_interactive_game(model=model)
