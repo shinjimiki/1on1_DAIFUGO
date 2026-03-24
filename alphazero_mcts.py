@@ -84,7 +84,7 @@ class MCTSNode:
 class MCTS:
     """Monte Carlo Tree Search"""
 
-    def __init__(self, c_puct: float = 1.0, max_simulations: int = 800, device: str = "cpu"):
+    def __init__(self, c_puct: float = 1.0, max_simulations: int = 40, device: str = "cpu"):
         self.c_puct = c_puct
         self.max_simulations = max_simulations
         self.device = device
@@ -190,12 +190,21 @@ class MCTS:
 
     def _copy_env(self, env):
         """環境のコピーを作成"""
-        # 簡易的なコピー（実際の実装ではもっと深くコピーする必要がある）
+        import copy
         from wrapper import DaifugoGymEnv
-        copy_env = DaifugoGymEnv(seed=42)  # 同じシードでコピー
-        copy_env.state = env.state  # 状態をコピー
+
+        # 安全なコピー: 元envを破壊しないように deepcopy する
+        copy_env = DaifugoGymEnv()  # 正常な初期化を行う
+        copy_env.env = copy.deepcopy(env.env)
+        copy_env.state = copy.deepcopy(env.state)
+        copy_env.env.state = copy.deepcopy(env.state)
         copy_env.player = env.player
-        copy_env.obs, copy_env.info = copy_env.reset()  # resetを呼ぶ
+        copy_env.opponent_policy = env.opponent_policy
+
+        # action_space / observation_space はすでに正しいが明示的にコピー
+        copy_env.action_space = env.action_space
+        copy_env.observation_space = env.observation_space
+
         return copy_env
 
     def get_best_action(self) -> int:

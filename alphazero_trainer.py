@@ -42,8 +42,13 @@ class AlphaZeroTrainer:
     """AlphaZero訓練クラス"""
 
     def __init__(self, input_size: int = 146, action_size: int = 7052, device: str = "auto"):
+        # 環境から実際のaction_sizeを取得
+        from wrapper import DaifugoGymEnv
+        temp_env = DaifugoGymEnv()
+        actual_action_size = temp_env.action_space.n
+        
         self.input_size = input_size
-        self.action_size = action_size
+        self.action_size = actual_action_size  # 実際のサイズを使用
 
         # デバイス設定
         if device == "auto":
@@ -54,12 +59,12 @@ class AlphaZeroTrainer:
         print(f"Using device: {self.device}")
 
         # ネットワーク初期化
-        self.network = AlphaZeroNet(input_size, action_size=action_size).to(self.device)
+        self.network = AlphaZeroNet(input_size, action_size=self.action_size).to(self.device)
         self.optimizer = optim.Adam(self.network.parameters(), lr=1e-3)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1000, gamma=0.9)
 
         # MCTS設定
-        self.mcts = MCTS(c_puct=1.0, max_simulations=400, device=self.device)
+        self.mcts = MCTS(c_puct=1.0, max_simulations=40, device=self.device)
 
         # 訓練データ
         self.replay_buffer = deque(maxlen=100000)
@@ -134,7 +139,7 @@ class AlphaZeroTrainer:
                 pred_policy, pred_value = self.network(obs_batch)
 
                 # 損失計算
-                policy_loss = nn.CrossEntropyLoss()(pred_policy, policy_batch)
+                policy_loss = nn.KLDivLoss(reduction='batchmean')(nn.functional.log_softmax(pred_policy, dim=-1), policy_batch)
                 value_loss = nn.MSELoss()(pred_value.squeeze(), value_batch.squeeze())
                 loss = policy_loss + value_loss
 
@@ -145,12 +150,13 @@ class AlphaZeroTrainer:
                 epoch_loss += loss.item()
 
             avg_epoch_loss = epoch_loss / len(dataloader)
+            print(f"Epoch {epoch + 1}/{epochs} loss: {avg_epoch_loss:.4f}")
             total_loss += avg_epoch_loss
 
         avg_loss = total_loss / epochs
         self.scheduler.step()
 
-        print(".4f")
+        print(f"Average training loss: {avg_loss:.4f}")
         return avg_loss
 
     def train(self, num_iterations: int = 100, games_per_iteration: int = 100):
@@ -171,14 +177,26 @@ class AlphaZeroTrainer:
             # 自己対戦でデータ生成
             print("Generating self-play data...")
             iteration_data = []
+            iteration_start_time = datetime.now()
 
             for game in range(games_per_iteration):
+                game_start_time = datetime.now()
                 env = DaifugoGymEnv(seed=int(datetime.now().timestamp() * 1000000) % (2**31 - 1))
                 game_data = self.self_play_game(env)
                 iteration_data.extend(game_data)
 
+                game_elapsed = (datetime.now() - game_start_time).total_seconds()
+                total_elapsed = (datetime.now() - iteration_start_time).total_seconds()
+                completed_games = game + 1
+                progress = completed_games / games_per_iteration * 100
+
+                print(
+                    f"  Game {completed_games}/{games_per_iteration} completed"
+                    f" (game time: {game_elapsed:.2f}s, iter elapsed: {total_elapsed:.2f}s, {progress:.1f}% done)"
+                )
+
                 if (game + 1) % 20 == 0:
-                    print(f"  Completed {game + 1}/{games_per_iteration} games")
+                    print(f"  Checkpoint: {game + 1}/{games_per_iteration} games done")
 
             # リプレイバッファに追加
             self.replay_buffer.extend(iteration_data)

@@ -5,6 +5,15 @@
             "matchCommandLine": true
         },
         "c:/Users/acbd1/Documents/GitHub/1on1_DAIFUGO/.venv/Scripts/python.exe": true,
-        ".venv\\Scripts\\python.exe": true
+        ".venv\\Scripts\\python.exe": true,
+        "/^python alphazero_train\\.py -i 10 -g 5$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        ".venv\\Scripts\\activate": true,
+        "/^\\.venv\\\\Scripts\\\\activate ; python -c \"from alphazero_trainer import AlphaZeroTrainer; from wrapper import DaifugoGymEnv; t=AlphaZeroTrainer\\(device='cpu'\\); print\\('trainer init ok'\\); t\\.train\\(num_iterations=1, games_per_iteration=1\\); print\\('train ok'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }
